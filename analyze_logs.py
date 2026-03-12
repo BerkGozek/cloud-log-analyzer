@@ -40,9 +40,18 @@ def count_status_codes(logs):
     
     return status_counter
 
+def count_endpoints(logs):
+    endpoint_counter = Counter()
+
+    for log in logs:
+        endpoint_counter[log["path"]] +=1
+    
+    return endpoint_counter
+
 def main():
     logs = parse_log_file(LOG_FILE)
     status_counts = count_status_codes(logs)
+    endpoint_counts = count_endpoints(logs)
 
     _ = subprocess.call('cls' if os.name == 'nt' else 'clear', shell=True)
     
@@ -57,7 +66,15 @@ def main():
     print("=" * 30)
 
     for status, count in sorted(status_counts.items()):
-        print(f"{status}: {count}")
+        print(f"{status}:\t{count}")
+
+    print("\n" * 2)
+
+    print("Top Endpoints")
+    print("=" * 30)
+
+    for path,count in endpoint_counts.most_common(5):
+        print(f"{path}:\t{count} requests")
 
 if __name__ == "__main__":
     main()
