@@ -2,11 +2,14 @@ import os
 import subprocess
 import re
 from collections import Counter
+from rich.console import Console
+from rich.table import Table
 
 
 
 
-LOG_FILE = "sample.log"
+LOG_FILE    = "sample.log"
+console     = Console()
 
 # Regex pattern to extract fields
 log_pattern = re.compile(
@@ -62,6 +65,63 @@ def detect_errors(logs):
     
     return client_errors,server_errors
 
+def print_log_entry_table(logs):
+    table = Table(title="Parsed Log Entries")
+    table.add_column("IP")
+    table.add_column("Method")
+    table.add_column("Path")
+    table.add_column("status")
+
+    for log in logs:
+        table.add_row(
+            log["ip"],
+            log["method"],
+            log["path"],
+            str(log["status"]),
+        )
+    
+    console.print(table)
+
+def print_status_table(status_counts):
+    table = Table(title="HTTP Status Code Summary")
+    table.add_column("Status Code", justify="right")
+    table.add_column("Count",       justify="right")
+
+    for status, count in sorted(status_counts.items()):
+        table.add_row(str(status),str(count))
+    
+    console.print(table)
+
+def print_endpoint_table(endpoint_counts):
+    table = Table(title="Top Endpoints")
+    table.add_column("Endpoint")
+    table.add_column("Requests",    justify="right")
+
+    for path, count in sorted(endpoint_counts.most_common(5)):
+        table.add_row(path,str(count))
+    
+    console.print(table)
+
+def print_error_table(errors, title):
+    table = Table(title=title)
+    table.add_column("Status", justify="right")
+    table.add_column("Method")
+    table.add_column("Path")
+    table.add_column("IP Address")
+
+    if errors:
+        for error in errors:
+            table.add_row(
+                str(error["status"]),
+                error["method"],
+                error["path"],
+                error["ip"],
+            )
+    else:
+        table.add_row("-","-","no errors detected","-")
+    
+    console.print(table)
+
 def main():
     logs = parse_log_file(LOG_FILE)
     status_counts = count_status_codes(logs)
@@ -71,50 +131,23 @@ def main():
 
     _ = subprocess.call('cls' if os.name == 'nt' else 'clear', shell=True)
     
-    print("Parsed log entries:")
-    print("=" * 30)
-    for log in logs:
-        print(log)
+    print_log_entry_table(logs)
 
     print("\n"*2)
 
-    print("HTTP Status Code Summary")
-    print("=" * 30)
-
-    for status, count in sorted(status_counts.items()):
-        print(f"{status}:\t{count}")
+    print_status_table(status_counts)
 
     print("\n" * 2)
 
-    print("Top Endpoints")
-    print("=" * 30)
-
-    for path,count in endpoint_counts.most_common(5):
-        print(f"{path}:\t{count} requests")
+    print_endpoint_table(endpoint_counts)
 
     print("\n" * 2)
 
-    print("Client errors (4xx)")
-
-    print("=" * 30)
-
-    if client_errors:
-        for error in client_errors:
-            print(f"{error["status"]} {error["method"]} {error["path"]} from {error["ip"]}")
-    else:
-        print("No Client Errors Detected")
+    print_error_table(client_errors, "Client Errors (4xx)")
 
     print("\n" * 2)
 
-    print("Server errors (5xx)")
-
-    print("=" * 30)
-
-    if server_errors:
-        for error in server_errors:
-            print(f"{error["status"]} {error["method"]} {error["path"]} from {error["ip"]}")
-    else:
-        print("No Server Errors Detected")
+    print_error_table(server_errors, "Server Errors (5xx)")
 
 if __name__ == "__main__":
     main()
